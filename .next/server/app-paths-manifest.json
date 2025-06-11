@@ -1,0 +1,7 @@
+{
+  "/profil/page": "app/profil/page.js",
+  "/page": "app/page.js",
+  "/parametres/page": "app/parametres/page.js",
+  "/collecte/page": "app/collecte/page.js",
+  "/pretraitement/page": "app/pretraitement/page.js"
+}
