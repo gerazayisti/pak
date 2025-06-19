@@ -19,6 +19,7 @@ export default function RecherchePage() {
   const [query, setQuery] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
   const [isThinking, setIsThinking] = useState(false)
+  const [isHistoryVisible, setIsHistoryVisible] = useState(true);
   const { toast } = useToast()
 
   const suggestionPrompts = [
@@ -126,16 +127,18 @@ export default function RecherchePage() {
           </div>
 
           {/* Chat History Display (Scrollable) */}
-          <div className="flex-1 w-full max-w-3xl overflow-y-auto mb-20 space-y-4">
-            {messages.map((msg) => (
-              <div key={msg.id} className={cn(
-                "p-3 rounded-lg max-w-[80%]",
-                msg.sender === 'user' ? "ml-auto bg-blue-500 text-white" : "mr-auto bg-gray-200 text-gray-800"
-              )}>
-                <p>{msg.text}</p>
-              </div>
-            ))}
-          </div>
+          {isHistoryVisible && (
+            <div className="flex-1 w-full max-w-3xl overflow-y-auto mb-20 space-y-4">
+              {messages.map((msg) => (
+                <div key={msg.id} className={cn(
+                  "p-3 rounded-lg max-w-[80%]",
+                  msg.sender === 'user' ? "ml-auto bg-blue-500 text-white" : "mr-auto bg-gray-200 text-gray-800"
+                )}>
+                  <p>{msg.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Chat Input (Fixed at bottom) */}
           <div className="w-full max-w-3xl fixed bottom-4 bg-white p-4 rounded-lg shadow-lg flex items-center space-x-3">
@@ -177,8 +180,8 @@ export default function RecherchePage() {
             ))}
           </div>
 
-          <Button className="w-full bg-blue-600 text-white hover:bg-blue-700">
-            New chat
+          <Button className="w-full bg-blue-600 text-white hover:bg-blue-700" onClick={() => setIsHistoryVisible(!isHistoryVisible)}>
+            {isHistoryVisible ? "Hide History" : "Show History"}
           </Button>
         </aside>
       </div>
