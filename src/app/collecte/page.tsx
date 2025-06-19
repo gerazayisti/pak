@@ -8,114 +8,243 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/components/ui/use-toast"
 import { Progress } from "@/components/ui/progress"
 import DashboardLayout from "@/components/dashboard-layout"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { KPICategory } from '@/types/kpi'
+import { formatKPICategory } from '@/lib/kpi-utils'
+import { FiUpload, FiFileText, FiFile } from 'react-icons/fi'
+import { Textarea } from "@/components/ui/textarea"
+
+const categories: KPICategory[] = [
+  'PLANIFICATION',
+  'PILOTAGE_ET_MESURE_DE_LA_PERFORMANCE',
+  'MANAGEMENT_DES_PROCESSUS',
+  'SUIVI_DE_LA_COHERENCE_DES_SYSTEMES_D_INFORMATIONS',
+  'ANALYSE_ET_CONTROLE_BUDGETAIRE',
+  'OPTIMISATION_ET_RATIONALISATION_DE_L_UTILISATION_DES_RESSOURCES',
+  'CONTROLE_DE_LA_COHERENCE_DES_INFORMATIONS_DE_GESTION',
+  'APPUI_A_LA_COORDINATION_ET_AU_RENFORCEMENT_DES_CAPACITES'
+]
 
 export default function CollectePage() {
-  const [pdfFile, setPdfFile] = useState<File | null>(null)
-  const [excelFile, setExcelFile] = useState<File | null>(null)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [downloadLink, setDownloadLink] = useState<string | null>(null)
-  const [processingProgress, setProcessingProgress] = useState(0)
+  const [selectedCategory, setSelectedCategory] = useState<KPICategory | null>(null)
+  const [inputMode, setInputMode] = useState<'upload' | 'form'>('upload')
+  const [isUploading, setIsUploading] = useState(false)
   const { toast } = useToast()
 
-  const handlePdfFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setPdfFile(event.target.files[0])
-    }
-  }
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
 
-  const handleExcelFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setExcelFile(event.target.files[0])
-    }
-  }
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    if (!pdfFile && !excelFile) {
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
       toast({
+        title: "Erreur",
+        description: "Veuillez téléverser un fichier Excel (.xlsx ou .xls)",
         variant: "destructive",
-        title: "Fichiers manquants",
-        description: "Veuillez téléverser au moins un fichier PDF ou Excel.",
       })
       return
     }
 
-    setIsProcessing(true)
-    setProcessingProgress(0)
-    setDownloadLink(null)
+    setIsUploading(true)
 
     try {
-      // Simuler le téléversement et le traitement
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        setProcessingProgress(i)
-      }
+      const formData = new FormData()
+      formData.append('file', file)
 
-      // Simuler la génération du lien de téléchargement
-      const dummyDownloadLink = URL.createObjectURL(new Blob(["Contenu de la matrice préremplie"], { type: "application/octet-stream" }))
-      setDownloadLink(dummyDownloadLink)
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors du téléversement')
+      }
 
       toast({
         title: "Succès",
-        description: "La matrice préremplie est prête au téléchargement.",
+        description: data.message || "Le fichier a été téléversé avec succès",
       })
+
+      event.target.value = ''
     } catch (error) {
+      console.error('Erreur:', error)
       toast({
-        variant: "destructive",
         title: "Erreur",
-        description: "Une erreur est survenue lors du traitement des fichiers.",
+        description: error instanceof Error ? error.message : "Une erreur est survenue lors du téléversement",
+        variant: "destructive",
       })
     } finally {
-      setIsProcessing(false)
+      setIsUploading(false)
     }
+  }
+
+  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    toast({
+      title: "Succès",
+      description: "Les données ont été enregistrées avec succès",
+    })
   }
 
   return (
     <DashboardLayout>
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">Module 1 : Collecte et Centralisation des Données</CardTitle>
-          <CardDescription>Téléversez vos rapports PDF et fichiers Excel pour le pré-remplissage des matrices.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid gap-4">
-              <div>
-                <Label htmlFor="pdf-file">Rapport PDF (Mensuel/Trimestriel)</Label>
-                <Input id="pdf-file" type="file" accept=".pdf" onChange={handlePdfFileChange} />
-              </div>
-              <div>
-                <Label htmlFor="excel-file">Fichier Excel d'engagement (ERP)</Label>
-                <Input id="excel-file" type="file" accept=".xls,.xlsx" onChange={handleExcelFileChange} />
-              </div>
-            </div>
-            
-            <Button type="submit" className="w-full" disabled={isProcessing || (!pdfFile && !excelFile)}>
-              {isProcessing ? `Traitement en cours (${processingProgress}%)` : "Extraire & Pré-remplir"}
-            </Button>
+      <div className="container mx-auto py-8">
+        <h1 className="text-2xl font-bold mb-6">Collecte des Données KPI</h1>
 
-            {isProcessing && (
-              <Progress value={processingProgress} className="w-full mt-4" />
-            )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {categories.map((category) => (
+            <Card 
+              key={category} 
+              className="hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => setSelectedCategory(category)}
+            >
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">
+                  {formatKPICategory(category)}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm text-gray-500">
+                  <p>Cliquez pour voir les détails et saisir les données</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-            {downloadLink && (
-              <div className="mt-6 text-center">
-                <p className="mb-2">Matrice préremplie générée :</p>
-                <a
-                  href={downloadLink}
-                  download="matrice_preremplie.xlsx"
-                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-                >
-                  Télécharger la Matrice Préremplie
-                </a>
-              </div>
-            )}
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        {selectedCategory && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>{formatKPICategory(selectedCategory)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="upload" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                  <TabsTrigger value="upload" onClick={() => setInputMode('upload')}>
+                    <FiUpload className="w-4 h-4 mr-2" />
+                    Téléversement
+                  </TabsTrigger>
+                  <TabsTrigger value="form" onClick={() => setInputMode('form')}>
+                    <FiFileText className="w-4 h-4 mr-2" />
+                    Formulaire
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="upload">
+                  <div className="space-y-4">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                      <div className="flex flex-col items-center justify-center space-y-4">
+                        <FiFile className="h-12 w-12 text-gray-400" />
+                        <div className="text-sm text-gray-500">
+                          <p>Glissez-déposez votre fichier Excel ici ou</p>
+                          <label htmlFor="file-upload" className="relative cursor-pointer">
+                            <span className="text-blue-600 hover:text-blue-500">cliquez pour sélectionner</span>
+                            <input
+                              id="file-upload"
+                              name="file-upload"
+                              type="file"
+                              accept=".xlsx,.xls"
+                              className="sr-only"
+                              onChange={handleFileUpload}
+                              disabled={isUploading}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-sm text-gray-500">
+                      <p>Format accepté : .xlsx, .xls</p>
+                      <p>Taille maximale : 10 MB</p>
+                    </div>
+
+                    {isUploading && (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span>Téléversement en cours...</span>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="form">
+                  <form onSubmit={handleFormSubmit} className="space-y-6">
+                    <div className="grid gap-4">
+                      <div>
+                        <Label htmlFor="activity">Activité</Label>
+                        <Input
+                          id="activity"
+                          placeholder="Entrez l'activité"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="indicator">Indicateur</Label>
+                        <Input
+                          id="indicator"
+                          placeholder="Entrez l'indicateur"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="value">Valeur</Label>
+                        <Input
+                          id="value"
+                          type="number"
+                          placeholder="Entrez la valeur"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="justification">Justification</Label>
+                        <Textarea
+                          id="justification"
+                          placeholder="Entrez la justification"
+                          rows={3}
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="corrective-actions">Actions Correctives</Label>
+                        <Textarea
+                          id="corrective-actions"
+                          placeholder="Entrez les actions correctives"
+                          rows={3}
+                          required
+                        />
+                      </div>
+
+                      <Button type="submit" className="w-full">
+                        Enregistrer
+                      </Button>
+                    </div>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Instructions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="list-disc list-inside space-y-2 text-sm text-gray-600">
+              <li>Sélectionnez une catégorie KPI</li>
+              <li>Choisissez entre le téléversement de fichier Excel ou la saisie manuelle</li>
+              <li>Remplissez toutes les informations requises</li>
+              <li>Enregistrez vos données</li>
+              <li>Les données seront automatiquement traitées par le système</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
     </DashboardLayout>
   )
 } 

@@ -17,7 +17,7 @@ Tableau de bord de suivi-évaluation et de planification pour le Port Autonome d
 - Export des fichiers standardisés
 
 ### Module 3 : Recherche intelligente & Résumé automatique
-- Interface de recherche textuelle/vocale
+- Interface de recherche textuelle
 - Système RAG avec embeddings et vector search
 - Génération de résumés contextuels
 - Export des résultats

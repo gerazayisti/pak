@@ -1,14 +1,14 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { Providers } from "@/components/providers"
 import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from "@/components/auth-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "PAK - Plateforme d'Administration des Kits",
-  description: "Gestion des kits et rapports",
+  title: "DPCG - Suivi des KPI",
+  description: "Application de suivi des indicateurs de performance",
 }
 
 export default function RootLayout({
@@ -17,12 +17,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr" suppressHydrationWarning>
-      <body className={inter.className}>
-        <Providers>
+    <html lang="fr" className={inter.className}>
+      <body className="min-h-screen bg-background">
+        <AuthProvider>
           {children}
-        </Providers>
-        <Toaster />
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   )

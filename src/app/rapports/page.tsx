@@ -10,8 +10,18 @@ import { Progress } from "@/components/ui/progress"
 import DashboardLayout from "@/components/dashboard-layout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { KPICategory, Quarter } from '@/types/kpi'
+import { formatKPICategory } from '@/lib/kpi-utils'
+import { initialKPIData } from '@/data/kpi-data'
+import { generateKPIReport } from '@/lib/kpi-utils'
+
+const quarters: Quarter[] = ['T1', 'T2', 'T3', 'T4']
+const currentYear = new Date().getFullYear()
 
 export default function RapportsPage() {
+  const [selectedQuarter, setSelectedQuarter] = useState<Quarter>('T3')
+  const [selectedCategory, setSelectedCategory] = useState<KPICategory | 'ALL'>('ALL')
   const [file, setFile] = useState<File | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationProgress, setGenerationProgress] = useState(0)
@@ -21,6 +31,12 @@ export default function RapportsPage() {
     excel?: string;
   } | null>(null)
   const { toast } = useToast()
+
+  const report = generateKPIReport(initialKPIData, currentYear, selectedQuarter)
+
+  const filteredCategories = selectedCategory === 'ALL' 
+    ? report.categories 
+    : report.categories.filter(cat => cat.category === selectedCategory)
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -71,6 +87,49 @@ export default function RapportsPage() {
         variant: "destructive",
         title: "Erreur",
         description: "Une erreur est survenue lors de la génération des rapports.",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleGenerateReport = async () => {
+    setIsGenerating(true)
+    try {
+      const response = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          year: currentYear,
+          quarter: selectedQuarter,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la génération du rapport')
+      }
+
+      const data = await response.json()
+
+      // Créer un lien de téléchargement
+      const link = document.createElement('a')
+      link.href = `data:${data.mimeType};base64,${data.content}`
+      link.download = `${data.title}.docx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast({
+        title: 'Succès',
+        description: 'Le rapport a été généré avec succès',
+      })
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors de la génération du rapport',
+        variant: 'destructive',
       })
     } finally {
       setIsGenerating(false)
@@ -186,140 +245,126 @@ export default function RapportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-8">
-                  <div>
-                    <h3 className="text-xl font-semibold mb-4">📊 Évaluation T1 (EVAL T1)</h3>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Activité</TableHead>
-                            <TableHead>Indicateur</TableHead>
-                            <TableHead>Cible</TableHead>
-                            <TableHead>Méthode de calcul</TableHead>
-                            <TableHead>Valeur T1</TableHead>
-                            <TableHead>Appréciation</TableHead>
-                            <TableHead>Justification</TableHead>
-                            <TableHead>Actions correctives</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>Lettre de cadrage approuvé</TableCell>
-                            <TableCell>Taux de respect des délais de publication de la lettre de cadrage</TableCell>
-                            <TableCell>1</TableCell>
-                            <TableCell>Durée réalisée/durée prévisionnelle</TableCell>
-                            <TableCell>/</TableCell>
-                            <TableCell>NON DU POUR LA PERIODE</TableCell>
-                            <TableCell>Cet indicateur sera évalué au second semestre</TableCell>
-                            <TableCell>—</TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Filtres</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Trimestre</label>
+                            <Select value={selectedQuarter} onValueChange={(value) => setSelectedQuarter(value as Quarter)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sélectionnez un trimestre" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {quarters.map((quarter) => (
+                                  <SelectItem key={quarter} value={quarter}>
+                                    {quarter}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Catégorie</label>
+                            <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as KPICategory | 'ALL')}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sélectionnez une catégorie" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ALL">Toutes les catégories</SelectItem>
+                                {report.categories.map((category) => (
+                                  <SelectItem key={category.category} value={category.category}>
+                                    {formatKPICategory(category.category)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <Button 
+                            onClick={handleGenerateReport}
+                            disabled={isGenerating}
+                            className="w-full"
+                          >
+                            {isGenerating ? 'Génération en cours...' : 'Générer le rapport Word'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Résumé Global</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <p className="text-sm text-gray-500">Total KPI</p>
+                            <p className="text-2xl font-bold">{report.overallStatus.total}</p>
+                          </div>
+                          <div className="bg-green-50 p-4 rounded-lg">
+                            <p className="text-sm text-green-600">Dans la Tendance</p>
+                            <p className="text-2xl font-bold text-green-700">{report.overallStatus.completed}</p>
+                          </div>
+                          <div className="bg-yellow-50 p-4 rounded-lg">
+                            <p className="text-sm text-yellow-600">En Cours</p>
+                            <p className="text-2xl font-bold text-yellow-700">{report.overallStatus.inProgress}</p>
+                          </div>
+                          <div className="bg-red-50 p-4 rounded-lg">
+                            <p className="text-sm text-red-600">À Rattraper</p>
+                            <p className="text-2xl font-bold text-red-700">{report.overallStatus.delayed}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
 
-                  <div>
-                    <h3 className="text-xl font-semibold mb-4">📊 Évaluation T2 (EVAL T2)</h3>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Activité</TableHead>
-                            <TableHead>Indicateur</TableHead>
-                            <TableHead>Cible</TableHead>
-                            <TableHead>Méthode de calcul</TableHead>
-                            <TableHead>Valeur T1</TableHead>
-                            <TableHead>Valeur T2</TableHead>
-                            <TableHead>Appréciation</TableHead>
-                            <TableHead>Justification</TableHead>
-                            <TableHead>Actions correctives</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>Lettre de cadrage approuvé</TableCell>
-                            <TableCell>Taux de respect des délais de publication de la lettre de cadrage</TableCell>
-                            <TableCell>1</TableCell>
-                            <TableCell>Durée réalisée/durée prévisionnelle</TableCell>
-                            <TableCell>/</TableCell>
-                            <TableCell>/</TableCell>
-                            <TableCell></TableCell>
-                            <TableCell></TableCell>
-                            <TableCell></TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
+                  <div className="space-y-6">
+                    {filteredCategories.map((category) => (
+                      <Card key={category.category}>
+                        <CardHeader>
+                          <CardTitle>{formatKPICategory(category.category)}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-500">Total KPI</p>
+                                <p className="text-lg font-semibold">{category.totalKPIs}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">Dans la Tendance</p>
+                                <p className="text-lg font-semibold text-green-600">{category.completedKPIs}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">En Cours</p>
+                                <p className="text-lg font-semibold text-yellow-600">{category.inProgressKPIs}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">À Rattraper</p>
+                                <p className="text-lg font-semibold text-red-600">{category.delayedKPIs}</p>
+                              </div>
+                            </div>
 
-                  <div>
-                    <h3 className="text-xl font-semibold mb-4">📊 Statistiques T3 (EVAL T3 stats)</h3>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Activité</TableHead>
-                            <TableHead>Indicateur</TableHead>
-                            <TableHead>Cible</TableHead>
-                            <TableHead>Méthode de calcul</TableHead>
-                            <TableHead>T1</TableHead>
-                            <TableHead>T2</TableHead>
-                            <TableHead>T3</TableHead>
-                            <TableHead>Appréciation</TableHead>
-                            <TableHead>Justification</TableHead>
-                            <TableHead>Action</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>Rapport de suivi-évaluation trimestriel</TableCell>
-                            <TableCell>Nombre de rapports de suivi-évaluation</TableCell>
-                            <TableCell>4</TableCell>
-                            <TableCell>—</TableCell>
-                            <TableCell>0</TableCell>
-                            <TableCell>1</TableCell>
-                            <TableCell>2</TableCell>
-                            <TableCell>A RATTRAPER</TableCell>
-                            <TableCell>Le rapport de T1 n'a pas été produit</TableCell>
-                            <TableCell>Sensibilisation des points focaux</TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-xl font-semibold mb-4">📊 Statistiques T2 (EVAL T2 Stats)</h3>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Activité</TableHead>
-                            <TableHead>Indicateur</TableHead>
-                            <TableHead>Cible</TableHead>
-                            <TableHead>Méthode de calcul</TableHead>
-                            <TableHead>T1</TableHead>
-                            <TableHead>T2</TableHead>
-                            <TableHead>Appréciation</TableHead>
-                            <TableHead>Justification</TableHead>
-                            <TableHead>Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>Lettre de cadrage approuvé</TableCell>
-                            <TableCell>Taux de respect des délais de publication de la lettre de cadrage</TableCell>
-                            <TableCell>1</TableCell>
-                            <TableCell>Durée réalisée/durée prévisionnelle</TableCell>
-                            <TableCell>/</TableCell>
-                            <TableCell>/</TableCell>
-                            <TableCell>NON RENSEIGNE</TableCell>
-                            <TableCell>—</TableCell>
-                            <TableCell>—</TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                              <div
+                                className="bg-green-600 h-2.5 rounded-full"
+                                style={{
+                                  width: `${(category.completedKPIs / category.totalKPIs) * 100}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              Progression : {Math.round((category.completedKPIs / category.totalKPIs) * 100)}%
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
                 </div>
               </CardContent>
