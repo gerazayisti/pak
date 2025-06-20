@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
-import { Search, Send, Smile, Edit, Lightbulb, Code } from "lucide-react"
+import { Search, Send, Smile, Edit, Lightbulb, Code, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import DashboardLayout from "@/components/dashboard-layout"
 
@@ -19,7 +19,7 @@ export default function RecherchePage() {
   const [query, setQuery] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
   const [isThinking, setIsThinking] = useState(false)
-  const [isHistoryVisible, setIsHistoryVisible] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false) // State for sidebar toggle
   const { toast } = useToast()
 
   const suggestionPrompts = [
@@ -68,9 +68,7 @@ export default function RecherchePage() {
     setIsThinking(true);
 
     try {
-      // Simuler la recherche RAG et la génération LLM
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Simule un délai de traitement
-
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       const dummyResponses = [
         "Le volume total de cargaison traité au Port Autonome de Kribi au dernier trimestre a augmenté de 7.2% grâce à l'optimisation des processus de dédouane-ment et à l'augmentation des importations de conteneurs.",
         "Les principales incohérences détectées dans les fichiers Excel sont liées aux formats de dates et aux unités de mesure incohérentes. Des règles de standardisation automatiques ont été appliquées pour corriger ces erreurs.",
@@ -102,50 +100,70 @@ export default function RecherchePage() {
     setQuery(text);
   };
 
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
   return (
     <DashboardLayout>
-      <div className="flex min-h-[calc(100vh-64px)] p-4">
-        {/* Main Chat Area (Left Column) */}
-        <div className="flex-1 flex flex-col items-center justify-start p-6">
-          <div className="text-center mb-10">
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">Hello, <span className="text-purple-600">there</span></h1>
-            <h2 className="text-2xl text-gray-700">How can I help you today?</h2>
+      <div className="flex min-h-[calc(100vh-64px)] flex-row">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6">
+          {/* Toggle Button for Sidebar (Mobile) */}
+          <div className="sm:hidden mb-4 fixed top-20 right-4">
+            <Button onClick={toggleSidebar} className="bg-blue-600 text-white hover:bg-blue-700">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
+
+          <div className="text-center mb-6 sm:mb-10">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+              Bonjour, <span className="text-purple-600">vous</span>
+            </h1>
+            <h2 className="text-lg sm:text-xl md:text-2xl text-gray-700">
+              Comment puis-je vous aider aujourd'hui ?
+            </h2>
           </div>
 
           {/* Suggestion Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-5xl mb-6 sm:mb-10">
             {suggestionPrompts.map((prompt, index) => (
-              <Card key={index} className="cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => handleSuggestionClick(prompt.text)}>
+              <Card
+                key={index}
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => handleSuggestionClick(prompt.text)}
+              >
                 <CardContent className="p-4 flex flex-col items-start justify-between h-full">
                   <div className="rounded-full bg-gray-100 p-2 mb-4">
-                    <prompt.icon className="h-6 w-6 text-gray-600" />
+                    <prompt.icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
                   </div>
-                  <p className="text-sm font-medium text-gray-800">{prompt.text}</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-800">{prompt.text}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          {/* Chat History Display (Scrollable) */}
-          {isHistoryVisible && (
-            <div className="flex-1 w-full max-w-3xl overflow-y-auto mb-20 space-y-4">
-              {messages.map((msg) => (
-                <div key={msg.id} className={cn(
-                  "p-3 rounded-lg max-w-[80%]",
+          {/* Chat History Display */}
+          <div className="flex-1 w-full max-w-3xl overflow-y-auto mb-16 sm:mb-20 space-y-4 px-2 sm:px-0">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={cn(
+                  "p-3 rounded-lg max-w-[85%] sm:max-w-[80%]",
                   msg.sender === 'user' ? "ml-auto bg-blue-500 text-white" : "mr-auto bg-gray-200 text-gray-800"
-                )}>
-                  <p>{msg.text}</p>
-                </div>
-              ))}
-            </div>
-          )}
+                )}
+              >
+                <p className="text-sm sm:text-base">{msg.text}</p>
+              </div>
+            ))}
+          </div>
 
-          {/* Chat Input (Fixed at bottom) */}
-          <div className="w-full max-w-3xl fixed bottom-4 bg-white p-4 rounded-lg shadow-lg flex items-center space-x-3">
+          {/* Chat Input */}
+          <div className="w-full max-w-100 mx-90 fixed bottom-0 sm:bottom-4 bg-white p-4 sm:rounded-lg sm:shadow-lg flex items-center space-x-3">
             <Input
               type="text"
-              placeholder="Enter a prompt here"
-              className="flex-1 pr-12" 
+              placeholder="Saisissez une invite ici"
+              className="flex-1 pr-12 text-sm sm:text-base overflow-hidden"
               value={query}
               onChange={handleQueryChange}
               onKeyPress={(e) => {
@@ -155,36 +173,44 @@ export default function RecherchePage() {
               }}
               disabled={isThinking}
             />
-            <Button onClick={handleSendMessage} disabled={isThinking} className="absolute right-6 top-1/2 -translate-y-1/2 bg-blue-600 text-white hover:bg-blue-700 rounded-full p-2 h-auto w-auto">
-              <Send className="h-5 w-5" />
+            <Button
+              onClick={handleSendMessage}
+              disabled={isThinking}
+              className="absolute right-6 top-1/2 -translate-y-1/2 bg-blue-600 text-white hover:bg-blue-700 rounded-full p-2 h-auto w-auto"
+            >
+              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </div>
-
         </div>
 
         {/* Right Sidebar */}
-        <aside className="w-80 border-l p-6 bg-gray-50 flex flex-col space-y-6">
+        <aside
+          className={cn(
+            "w-full sm:w-64 lg:w-80 border-l p-4 sm:p-6 bg-gray-50 flex flex-col space-y-6",
+            isSidebarOpen ? "block" : "hidden sm:block"
+          )}
+        >
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <Input type="text" placeholder="Search chat" className="pl-10" />
+            <Search className="relative left-3 top-2/3 -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
+            <Input type="text" placeholder="Search chat" className="pl-10 text-sm sm:text-base" />
           </div>
 
           <div className="flex flex-col space-y-4">
             {recentChats.map((chat) => (
               <Card key={chat.id} className="cursor-pointer hover:bg-gray-100">
                 <CardContent className="p-4">
-                  <h4 className="font-medium">{chat.title}</h4>
+                  <h4 className="font-medium text-sm sm:text-base">{chat.title}</h4>
                   <p className="text-xs text-muted-foreground truncate">{chat.text}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          <Button className="w-full bg-blue-600 text-white hover:bg-blue-700" onClick={() => setIsHistoryVisible(!isHistoryVisible)}>
-            {isHistoryVisible ? "Hide History" : "Show History"}
+          <Button className="w-full bg-blue-600 text-white hover:bg-blue-700 text-sm sm:text-base">
+            New chat
           </Button>
         </aside>
       </div>
     </DashboardLayout>
   )
-} 
+}
