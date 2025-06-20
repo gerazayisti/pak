@@ -111,7 +111,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <ThemeToggle />
               <button
                 onClick={handleDatabaseUpdate}
-                className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                className="rounded-md bg-blue-900 px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
                 Synchroniser
               </button>

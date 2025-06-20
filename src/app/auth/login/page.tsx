@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
+import Image from "next/image"
 
 const formSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -39,7 +40,6 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsLoading(true)
-
       const result = await signIn("credentials", {
         email: values.email,
         password: values.password,
@@ -69,46 +69,59 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="mx-auto w-full max-w-md space-y-6 p-6">
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold">Connexion</h1>
-          <p className="text-gray-500">Connectez-vous à votre compte</p>
+    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
+      <div className="flex items-center justify-center py-12">
+        <div className="mx-auto grid w-[350px] gap-6">
+          <div className="grid gap-2 text-center">
+            <h1 className="text-3xl font-bold">Connexion</h1>
+            <p className="text-balance text-muted-foreground">
+              Connectez-vous à votre compte
+            </p>
+          </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="exemple@pak.cm" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mot de passe</FormLabel>
+                    <FormControl>
+                      <Input type="password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Connexion..." : "Se connecter"}
+              </Button>
+            </form>
+          </Form>
         </div>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="exemple@pak.cm" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Mot de passe</FormLabel>
-                  <FormControl>
-                    <Input type="password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button className="w-full" type="submit" disabled={isLoading}>
-              {isLoading ? "Connexion..." : "Se connecter"}
-            </Button>
-          </form>
-        </Form>
+      </div>
+      <div className="hidden bg-gray-100 lg:block dark:bg-gray-800">
+        <Image
+          src="/paklogin.jpg"
+          alt="Image"
+          width="1920"
+          height="1080"
+          className="h-full w-full object-cover"
+        />
       </div>
     </div>
   )
-} 
+}

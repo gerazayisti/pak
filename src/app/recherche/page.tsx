@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
+"use client"
+
+import { useState, useRef, useEffect } from "react"
+import { Bot, FileText, BarChart, Ship, Send, User, PanelLeft, X, MessageSquare } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { useToast } from "@/components/ui/use-toast"
-import { Search, Send, Smile, Edit, Lightbulb, Code, Menu } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import DashboardLayout from "@/components/dashboard-layout"
+import { cn } from "@/lib/utils"
 
 type Message = {
   id: string;
@@ -15,202 +15,134 @@ type Message = {
   text: string;
 };
 
+const conversationHistory = [
+  { id: '1', title: 'Rapport sur les importations de conteneurs' },
+  { id: '2', title: 'Analyse des temps d\'escale des navires' },
+  { id: '3', title: 'Identifier les principaux partenaires commerciaux' },
+  { id: '4', title: 'Volume total de marchandises traitées en mai' },
+  { id: '5', title: 'Prévisions de trafic pour le prochain trimestre' },
+];
+
 export default function RecherchePage() {
-  const [query, setQuery] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
-  const [isThinking, setIsThinking] = useState(false)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false) // State for sidebar toggle
-  const { toast } = useToast()
+  const [query, setQuery] = useState("")
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const suggestionPrompts = [
-    {
-      icon: Smile,
-      text: "Aidez-moi à trouver des rapports sur l'activité portuaire de l'année dernière."
-    },
-    {
-      icon: Edit,
-      text: "Décrivez les principales étapes du processus de standardisation des données."
-    },
-    {
-      icon: Lightbulb,
-      text: "Comment puis-je optimiser la collecte de données PDF ?"
-    },
-    {
-      icon: Code,
-      text: "Donnez-moi un résumé des données traitées en Q1."
-    }
-  ];
-
-  const recentChats = [
-    { id: "1", title: "Rapport sur les cargaisons de conteneurs...", text: "J'ai besoin d'informations sur le volume de conteneurs traités en..." },
-    { id: "2", title: "Planification des opérations 2023...", text: "Je suis à la recherche de données sur la planification des opérations..." },
-    { id: "3", title: "Analyse des données d'importation...", text: "Pouvez-vous me fournir une analyse des données d'importation de..." },
-    { id: "4", title: "Fonction de recherche de documents...", text: "Comment fonctionne la fonction de recherche de documents pour..." },
-  ];
-
-  const handleQueryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(event.target.value)
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
-  const handleSendMessage = async () => {
-    if (!query.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Requête vide",
-        description: "Veuillez saisir une requête.",
-      })
-      return
-    }
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages]);
 
+  const handleSendMessage = () => {
+    if (!query.trim()) return;
     const userMessage: Message = { id: Date.now().toString(), sender: 'user', text: query };
-    setMessages((prevMessages) => [...prevMessages, userMessage]);
+    const botMessage: Message = { id: (Date.now() + 1).toString(), sender: 'bot', text: `Analyse en cours pour : "${query}". Veuillez patienter...` };
+    setMessages([...messages, userMessage, botMessage]);
     setQuery("");
-    setIsThinking(true);
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const dummyResponses = [
-        "Le volume total de cargaison traité au Port Autonome de Kribi au dernier trimestre a augmenté de 7.2% grâce à l'optimisation des processus de dédouane-ment et à l'augmentation des importations de conteneurs.",
-        "Les principales incohérences détectées dans les fichiers Excel sont liées aux formats de dates et aux unités de mesure incohérentes. Des règles de standardisation automatiques ont été appliquées pour corriger ces erreurs.",
-        "Le rapport mensuel sur les opérations portuaires indique une augmentation significative du nombre d'escales de navires de marchandises en vrac, notamment pour les produits agricoles et miniers. Les mesures de sécurité ont été renforcées.",
-        "Le système de suivi-évaluation a identifié un écart de performance dans la gestion des importations de pétrole brut au cours du dernier semestre. Des analyses approfondies sont en cours pour déterminer les causes et proposer des actions correctives.",
-        "Pour générer un rapport détaillé sur l'impact environnemental des opérations portuaires, veuillez spécifier la période souhaitée et les indicateurs clés à inclure, tels que les émissions de CO2, la consommation d'eau et la gestion des déchets."
-      ];
-      const randomResponse = dummyResponses[Math.floor(Math.random() * dummyResponses.length)];
-
-      const botMessage: Message = { id: (Date.now() + 1).toString(), sender: 'bot', text: randomResponse };
-      setMessages((prevMessages) => [...prevMessages, botMessage]);
-
-      toast({
-        title: "Recherche terminée",
-        description: "La réponse pertinente a été générée.",
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la recherche intelligente.",
-      });
-    } finally {
-      setIsThinking(false);
-    }
-  };
-
-  const handleSuggestionClick = (text: string) => {
-    setQuery(text);
-  };
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
   };
 
   return (
     <DashboardLayout>
-      <div className="flex min-h-[calc(100vh-64px)] flex-row">
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col items-center justify-start p-4 sm:p-6">
-          {/* Toggle Button for Sidebar (Mobile) */}
-          <div className="sm:hidden mb-4 fixed top-20 right-4">
-            <Button onClick={toggleSidebar} className="bg-blue-600 text-white hover:bg-blue-700">
-              <Menu className="h-5 w-5" />
+      <div className="flex h-[calc(100vh-64px)]">
+        {/* History Sidebar */}
+        <aside className={cn(
+          "bg-gray-100 border-r flex flex-col transition-all duration-300 ease-in-out",
+          isHistoryOpen ? "w-full md:w-72 p-4" : "w-0 p-0 border-none"
+        )}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-bold text-lg text-gray-800">Historique</h2>
+            <Button variant="ghost" size="icon" onClick={() => setIsHistoryOpen(false)}>
+              <X className="h-5 w-5 text-gray-600" />
             </Button>
           </div>
-
-          <div className="text-center mb-6 sm:mb-10">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-              Bonjour, <span className="text-purple-600">vous</span>
-            </h1>
-            <h2 className="text-lg sm:text-xl md:text-2xl text-gray-700">
-              Comment puis-je vous aider aujourd'hui ?
-            </h2>
-          </div>
-
-          {/* Suggestion Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-5xl mb-6 sm:mb-10">
-            {suggestionPrompts.map((prompt, index) => (
-              <Card
-                key={index}
-                className="cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => handleSuggestionClick(prompt.text)}
-              >
-                <CardContent className="p-4 flex flex-col items-start justify-between h-full">
-                  <div className="rounded-full bg-gray-100 p-2 mb-4">
-                    <prompt.icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
-                  </div>
-                  <p className="text-xs sm:text-sm font-medium text-gray-800">{prompt.text}</p>
-                </CardContent>
-              </Card>
+          <div className="flex-1 overflow-y-auto space-y-2">
+            {conversationHistory.map(item => (
+              <button key={item.id} className="w-full text-left p-2 rounded-md hover:bg-gray-200 cursor-pointer flex items-center gap-3">
+                 <MessageSquare className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                 <span className="truncate text-sm font-medium text-gray-700">{item.title}</span>
+              </button>
             ))}
           </div>
-
-          {/* Chat History Display */}
-          <div className="flex-1 w-full max-w-3xl overflow-y-auto mb-16 sm:mb-20 space-y-4 px-2 sm:px-0">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "p-3 rounded-lg max-w-[85%] sm:max-w-[80%]",
-                  msg.sender === 'user' ? "ml-auto bg-blue-500 text-white" : "mr-auto bg-gray-200 text-gray-800"
-                )}
-              >
-                <p className="text-sm sm:text-base">{msg.text}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Chat Input */}
-          <div className="w-full max-w-100 mx-90 fixed bottom-0 sm:bottom-4 bg-white p-4 sm:rounded-lg sm:shadow-lg flex items-center space-x-3">
-            <Input
-              type="text"
-              placeholder="Saisissez une invite ici"
-              className="flex-1 pr-12 text-sm sm:text-base overflow-hidden"
-              value={query}
-              onChange={handleQueryChange}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && !isThinking) {
-                  handleSendMessage();
-                }
-              }}
-              disabled={isThinking}
-            />
-            <Button
-              onClick={handleSendMessage}
-              disabled={isThinking}
-              className="absolute right-6 top-1/2 -translate-y-1/2 bg-blue-600 text-white hover:bg-blue-700 rounded-full p-2 h-auto w-auto"
-            >
-              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Right Sidebar */}
-        <aside
-          className={cn(
-            "w-full sm:w-64 lg:w-80 border-l p-4 sm:p-6 bg-gray-50 flex flex-col space-y-6",
-            isSidebarOpen ? "block" : "hidden sm:block"
-          )}
-        >
-          <div className="relative">
-            <Search className="relative left-3 top-2/3 -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
-            <Input type="text" placeholder="Search chat" className="pl-10 text-sm sm:text-base" />
-          </div>
-
-          <div className="flex flex-col space-y-4">
-            {recentChats.map((chat) => (
-              <Card key={chat.id} className="cursor-pointer hover:bg-gray-100">
-                <CardContent className="p-4">
-                  <h4 className="font-medium text-sm sm:text-base">{chat.title}</h4>
-                  <p className="text-xs text-muted-foreground truncate">{chat.text}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <Button className="w-full bg-blue-600 text-white hover:bg-blue-700 text-sm sm:text-base">
-            New chat
-          </Button>
         </aside>
+
+        {/* Main Chat Area */}
+        <main className="flex-1 flex flex-col bg-gray-50 relative">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {!isHistoryOpen && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 left-4 z-10"
+                onClick={() => setIsHistoryOpen(true)}
+              >
+                <PanelLeft className="h-5 w-5 text-gray-600" />
+              </Button>
+            )}
+            {messages.length === 0 ? (
+              <div className="text-center mt-12">
+                <div className="inline-block p-5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full mb-6 shadow-lg">
+                  <Bot className="h-12 w-12 text-white" />
+                </div>
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-800">Assistant d'Analyse de Données PAK</h1>
+                <p className="text-lg md:text-xl text-gray-500 mt-3">Posez vos questions sur les activités portuaires.</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl w-full mx-auto mt-10">
+                  <SuggestionCard text="Rapport mensuel des importations" icon={<FileText className="h-7 w-7 text-blue-500" />} />
+                  <SuggestionCard text="Performance des temps d'escale" icon={<BarChart className="h-7 w-7 text-blue-500" />} />
+                  <SuggestionCard text="Flux de marchandises par pays" icon={<Ship className="h-7 w-7 text-blue-500" />} />
+                </div>
+              </div>
+            ) : (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "flex items-start gap-4 max-w-xl",
+                    msg.sender === 'user' ? "ml-auto flex-row-reverse" : "mr-auto"
+                  )}
+                >
+                  <div className={cn("p-3 rounded-full flex items-center justify-center", msg.sender === 'user' ? "bg-blue-500" : "bg-gray-200")}>
+                    {msg.sender === 'user' ? <User className="h-5 w-5 text-white" /> : <Bot className="h-5 w-5 text-gray-600" />}
+                  </div>
+                  <div className={cn("p-4 rounded-lg", msg.sender === 'user' ? "bg-blue-500 text-white" : "bg-white text-gray-800 shadow-sm")}>
+                    <p>{msg.text}</p>
+                  </div>
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="p-4 border-t bg-white/80 backdrop-blur-md sticky bottom-0">
+            <div className="relative w-full max-w-4xl mx-auto">
+              <Input
+                placeholder="Ex: Quel est le volume total de conteneurs traités le mois dernier ?"
+                className="w-full p-4 pl-6 pr-16 h-14 rounded-full bg-gray-100 border-gray-200 focus:ring-2 focus:ring-blue-400 text-base"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              />
+              <Button onClick={handleSendMessage} size="icon" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full w-10 h-10 bg-blue-500 hover:bg-blue-600 transition-transform duration-200 active:scale-95">
+                <Send className="h-5 w-5 text-white" />
+              </Button>
+            </div>
+          </div>
+        </main>
       </div>
     </DashboardLayout>
+  )
+}
+
+function SuggestionCard({ text, icon }: { text: string; icon: React.ReactNode }) {
+  return (
+    <div className="bg-white p-5 rounded-xl border border-gray-200 hover:border-blue-400 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col items-center text-center">
+      <div className="mb-4">
+        {icon}
+      </div>
+      <p className="font-semibold text-gray-700">{text}</p>
+    </div>
   )
 }
