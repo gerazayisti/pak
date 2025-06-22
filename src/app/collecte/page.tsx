@@ -35,10 +35,10 @@ export default function CollectePage() {
     const file = event.target.files?.[0]
     if (!file) return
 
-    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls') && !file.name.endsWith('.pdf')) {
       toast({
         title: "Erreur",
-        description: "Veuillez téléverser un fichier Excel (.xlsx ou .xls)",
+        description: "Veuillez téléverser un fichier Excel (.xlsx, .xls) ou PDF (.pdf)",
         variant: "destructive",
       })
       return
@@ -50,20 +50,21 @@ export default function CollectePage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch('https://pak-auto.app.n8n.cloud/webhook-test/85456d3c-9b81-4a2c-a6f8-af894015d6df', {
         method: 'POST',
+        headers: {
+          'Authorization': 'Bearer 1234567890abcde',
+        },
         body: formData,
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors du téléversement')
+        throw new Error("Erreur lors de l'envoi au webhook-test n8n")
       }
 
       toast({
         title: "Succès",
-        description: data.message || "Le fichier a été téléversé avec succès",
+        description: "Le fichier a été envoyé au workflow n8n avec succès.",
       })
 
       event.target.value = ''
@@ -71,7 +72,7 @@ export default function CollectePage() {
       console.error('Erreur:', error)
       toast({
         title: "Erreur",
-        description: error instanceof Error ? error.message : "Une erreur est survenue lors du téléversement",
+        description: error instanceof Error ? error.message : "Une erreur est survenue lors de l'envoi au webhook-test n8n",
         variant: "destructive",
       })
     } finally {
