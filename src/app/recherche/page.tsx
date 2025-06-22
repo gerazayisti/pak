@@ -3,7 +3,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Bot, FileText, BarChart, Ship, Send, User, PanelLeft, X, MessageSquare } from "lucide-react"
+import { Bot, FileText, BarChart, Ship, Send, User, PanelLeft, X, MessageSquare, ClipboardCopy } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import DashboardLayout from "@/components/dashboard-layout"
@@ -43,6 +43,7 @@ export default function RecherchePage() {
   const [isBotThinking, setIsBotThinking] = useState(false)
   const [thinkingIndex, setThinkingIndex] = useState(0)
   const [botResponse, setBotResponse] = useState<string | null>(null)
+  const [typedBotMessages, setTypedBotMessages] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const thinkingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -135,7 +136,76 @@ export default function RecherchePage() {
     handleSendMessage(question);
   };
 
-  function renderBotMessage(msg: Message) {
+  // Composant pour l'affichage d'un message du bot avec effet typing et bouton copier
+  function BotMessage({ main, questions, isTyping, alreadyTyped, onCopy, onQuestionClick, onTypingDone }: {
+    main: string,
+    questions: string[],
+    isTyping?: boolean,
+    alreadyTyped?: boolean,
+    onCopy: () => void,
+    onQuestionClick: (q: string) => void,
+    onTypingDone?: () => void,
+  }) {
+    const [displayed, setDisplayed] = React.useState(alreadyTyped || !isTyping ? main : "")
+    const [copied, setCopied] = React.useState(false)
+    const [isDoneTyping, setIsDoneTyping] = React.useState(alreadyTyped || !isTyping)
+    React.useEffect(() => {
+      if (alreadyTyped || !isTyping) {
+        setDisplayed(main)
+        setIsDoneTyping(true)
+        return
+      }
+      setDisplayed("")
+      setIsDoneTyping(false)
+      let i = 0
+      const interval = setInterval(() => {
+        setDisplayed(main.slice(0, i + 1))
+        i++
+        if (i >= main.length) {
+          clearInterval(interval)
+          setIsDoneTyping(true)
+          if (onTypingDone) onTypingDone()
+        }
+      }, 12)
+      return () => clearInterval(interval)
+    }, [main, isTyping, alreadyTyped])
+
+    const handleCopy = () => {
+      navigator.clipboard.writeText(main + (questions.length ? "\n\n" + questions.join("\n") : ""))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1200)
+    }
+
+    return (
+      <div className="relative group">
+        <div className="prose max-w-none mb-4">
+          <ReactMarkdown>{displayed}</ReactMarkdown>
+        </div>
+        <button
+          className="absolute top-2 right-2 opacity-60 hover:opacity-100 transition bg-white rounded p-1 border border-gray-200"
+          onClick={handleCopy}
+          title="Copier le texte"
+        >
+          {copied ? <span className="text-xs text-green-600">Copié !</span> : <ClipboardCopy className="w-4 h-4" />}
+        </button>
+        {questions.length > 0 && isDoneTyping && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {questions.map((q, idx) => (
+              <button
+                key={idx}
+                className="px-3 py-1 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm"
+                onClick={() => onQuestionClick(q)}
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderBotMessage(msg: Message, isTyping: boolean, alreadyTyped: boolean, onQuestionClick: (q: string) => void, onTypingDone: () => void) {
     if (msg.sender === 'bot' && msg.text) {
       try {
         const parsed = JSON.parse(msg.text)
@@ -148,24 +218,15 @@ export default function RecherchePage() {
           if (allOutputs) {
             const { main, questions } = splitTextAndQuestions(allOutputs);
             return (
-              <div>
-                <div className="prose max-w-none mb-4">
-                  <ReactMarkdown>{main}</ReactMarkdown>
-                </div>
-                {questions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {questions.map((q, idx) => (
-                      <button
-                        key={idx}
-                        className="px-3 py-1 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm"
-                        onClick={() => handleQuestionClick(q)}
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <BotMessage
+                main={main}
+                questions={questions}
+                isTyping={isTyping}
+                alreadyTyped={alreadyTyped}
+                onCopy={() => {}}
+                onQuestionClick={onQuestionClick}
+                onTypingDone={onTypingDone}
+              />
             )
           }
         }
@@ -173,75 +234,52 @@ export default function RecherchePage() {
         if (parsed && typeof parsed === 'object' && typeof parsed.output === 'string') {
           const { main, questions } = splitTextAndQuestions(parsed.output);
           return (
-            <div>
-              <div className="prose max-w-none mb-4">
-                <ReactMarkdown>{main}</ReactMarkdown>
-              </div>
-              {questions.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {questions.map((q, idx) => (
-                    <button
-                      key={idx}
-                      className="px-3 py-1 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm"
-                      onClick={() => handleQuestionClick(q)}
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <BotMessage
+              main={main}
+              questions={questions}
+              isTyping={isTyping}
+              alreadyTyped={alreadyTyped}
+              onCopy={() => {}}
+              onQuestionClick={onQuestionClick}
+              onTypingDone={onTypingDone}
+            />
           )
         }
       } catch {
         // pas du JSON, on affiche en markdown
         const { main, questions } = splitTextAndQuestions(msg.text);
         return (
-          <div>
-            <div className="prose max-w-none mb-4">
-              <ReactMarkdown>{main}</ReactMarkdown>
-            </div>
-            {questions.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {questions.map((q, idx) => (
-                  <button
-                    key={idx}
-                    className="px-3 py-1 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm"
-                    onClick={() => handleQuestionClick(q)}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <BotMessage
+            main={main}
+            questions={questions}
+            isTyping={isTyping}
+            alreadyTyped={alreadyTyped}
+            onCopy={() => {}}
+            onQuestionClick={onQuestionClick}
+            onTypingDone={onTypingDone}
+          />
         )
       }
       // Si JSON.parse ne lève pas d'erreur mais ce n'est pas un objet, fallback markdown
       const { main, questions } = splitTextAndQuestions(msg.text);
       return (
-        <div>
-          <div className="prose max-w-none mb-4">
-            <ReactMarkdown>{main}</ReactMarkdown>
-          </div>
-          {questions.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {questions.map((q, idx) => (
-                <button
-                  key={idx}
-                  className="px-3 py-1 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm"
-                  onClick={() => handleQuestionClick(q)}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <BotMessage
+          main={main}
+          questions={questions}
+          isTyping={isTyping}
+          alreadyTyped={alreadyTyped}
+          onCopy={() => {}}
+          onQuestionClick={onQuestionClick}
+          onTypingDone={onTypingDone}
+        />
       )
     }
     return <p>{msg.text}</p>
   }
+
+  const handleTypingDone = (msgId: string) => {
+    setTypedBotMessages(prev => new Set(prev).add(msgId));
+  };
 
   return (
     <DashboardLayout>
@@ -294,22 +332,29 @@ export default function RecherchePage() {
                 </div>
               </div>
             ) : (
-              messages.map((msg, idx) => (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    "flex items-start gap-4 max-w-xl",
-                    msg.sender === 'user' ? "ml-auto flex-row-reverse" : "mr-auto"
-                  )}
-                >
-                  <div className={cn("p-3 rounded-full flex items-center justify-center", msg.sender === 'user' ? "bg-blue-500" : "bg-gray-200")}> 
-                    {msg.sender === 'user' ? <User className="h-5 w-5 text-white" /> : <Bot className="h-5 w-5 text-gray-600" />}
+              messages.map((msg, idx) => {
+                const isLastBot = msg.sender === 'bot' && idx === messages.length - 1;
+                const alreadyTyped = typedBotMessages.has(msg.id);
+                const shouldType = isLastBot && !alreadyTyped;
+                return (
+                  <div
+                    key={msg.id}
+                    className={cn(
+                      "flex items-start gap-4 max-w-xl",
+                      msg.sender === 'user' ? "ml-auto flex-row-reverse" : "mr-auto"
+                    )}
+                  >
+                    <div className={cn("p-3 rounded-full flex items-center justify-center", msg.sender === 'user' ? "bg-blue-500" : "bg-gray-200")}> 
+                      {msg.sender === 'user' ? <User className="h-5 w-5 text-white" /> : <Bot className="h-5 w-5 text-gray-600" />}
+                    </div>
+                    <div className={cn("p-4 rounded-lg", msg.sender === 'user' ? "bg-blue-500 text-white" : "bg-white text-gray-800 shadow-sm")}> 
+                      {msg.sender === 'bot'
+                        ? renderBotMessage(msg, shouldType, alreadyTyped, handleQuestionClick, () => handleTypingDone(msg.id))
+                        : <p>{msg.text}</p>}
+                    </div>
                   </div>
-                  <div className={cn("p-4 rounded-lg", msg.sender === 'user' ? "bg-blue-500 text-white" : "bg-white text-gray-800 shadow-sm")}> 
-                    {renderBotMessage(msg)}
-                  </div>
-                </div>
-              ))
+                )
+              })
             )}
             {/* Message d'attente animé du bot */}
             {isBotThinking && (
