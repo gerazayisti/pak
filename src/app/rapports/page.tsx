@@ -15,13 +15,121 @@ import { KPICategory, Quarter } from '@/types/kpi'
 import { formatKPICategory } from '@/lib/kpi-utils'
 import { initialKPIData } from '@/data/kpi-data'
 import { generateKPIReport } from '@/lib/kpi-utils'
+import { Checkbox } from "@/components/ui/checkbox"
+
+/**
+ * Nettoie et formate le texte brut pour un affichage ou une génération propre.
+ * - Supprime les marqueurs markdown (###, **, ---)
+ * - Garde les listes à puces/numérotées sous forme simple
+ * - Transforme les tableaux markdown en texte lisible
+ * - Gère les paragraphes et les retours à la ligne
+ */
+function formatPlainText(input: string): string {
+  const lines = input.split('\n');
+  let output: string[] = [];
+  let inTable = false;
+  let tableBuffer: string[] = [];
+
+  for (let line of lines) {
+    let trimmed = line.trim();
+
+    // Supprimer les séparateurs
+    if (trimmed.startsWith('---')) continue;
+
+    // Titre niveau 1 ou 2
+    if (trimmed.startsWith('### ')) {
+      output.push(trimmed.replace(/^###\s*/, '').trim());
+      continue;
+    }
+    if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+      output.push(trimmed.replace(/\*\*/g, '').trim());
+      continue;
+    }
+
+    // Champ en gras
+    if (trimmed.startsWith('**')) {
+      output.push(trimmed.replace(/\*\*/g, '').trim());
+      continue;
+    }
+
+    // Liste à puces
+    if (trimmed.startsWith('* ')) {
+      output.push('• ' + trimmed.replace(/^\*\s*/, '').trim());
+      continue;
+    }
+
+    // Liste numérotée
+    if (trimmed.match(/^\d+\.\s/)) {
+      output.push(trimmed); // On garde la numérotation telle quelle
+      continue;
+    }
+
+    // Tableaux markdown
+    if (trimmed.startsWith('|')) {
+      inTable = true;
+      tableBuffer.push(trimmed);
+      continue;
+    } else if (inTable) {
+      // Fin du tableau, on le transforme en texte
+      if (tableBuffer.length > 0) {
+        // On ignore la ligne de séparation (|---|)
+        const tableRows = tableBuffer.filter(l => !/^\|[-\s|]+\|$/.test(l));
+        tableRows.forEach(row => {
+          const cells = row.split('|').slice(1, -1).map(cell => cell.trim());
+          output.push(cells.join(' | '));
+        });
+        tableBuffer = [];
+      }
+      inTable = false;
+    }
+
+    // Ligne vide = nouveau paragraphe
+    if (trimmed.length === 0) {
+      output.push('');
+      continue;
+    }
+
+    // Paragraphe normal
+    output.push(trimmed);
+  }
+
+  // Si le texte se termine par un tableau
+  if (inTable && tableBuffer.length > 0) {
+    const tableRows = tableBuffer.filter(l => !/^\|[-\s|]+\|$/.test(l));
+    tableRows.forEach(row => {
+      const cells = row.split('|').slice(1, -1).map(cell => cell.trim());
+      output.push(cells.join(' | '));
+    });
+  }
+
+  // Nettoyage final : supprime les multiples lignes vides consécutives
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
 
 const quarters: Quarter[] = ['T1', 'T2', 'T3', 'T4']
 const currentYear = new Date().getFullYear()
+const months = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+];
+const categories = [
+  "Planification",
+  "Pilotage Et Mesure De La Performance",
+  "Management Des Processus",
+  "Suivi De La Coherence Des Systemes D Informations",
+  "Analyse Et Controle Budgetaire",
+  "Optimisation Et Rationalisation De L Utilisation Des Ressources",
+  "Controle De La Coherence Des Informations De Gestion",
+  "Appui A La Coordination Et Au Renforcement Des Capacites"
+];
+const N8N_WEBHOOK_URL = 'https://pak-agent.app.n8n.cloud/webhook/9ba11544-5c4e-4f91-818a-08a4ecb596c5';
+const N8N_TOKEN = '1234567890qwerty';
 
 export default function RapportsPage() {
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter>('T3')
   const [selectedCategory, setSelectedCategory] = useState<KPICategory | 'ALL'>('ALL')
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+  const [reportFormat, setReportFormat] = useState<'word' | 'pdf'>('word');
   const [file, setFile] = useState<File | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationProgress, setGenerationProgress] = useState(0)
@@ -44,54 +152,106 @@ export default function RapportsPage() {
     }
   }
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const handleMonthToggle = (month: string) => {
+    setSelectedMonths((prev) =>
+      prev.includes(month)
+        ? prev.filter((m) => m !== month)
+        : [...prev, month]
+    );
+  };
 
-    if (!file) {
-      toast({
-        variant: "destructive",
-        title: "Fichier manquant",
-        description: "Veuillez téléverser un fichier pour générer le rapport.",
-      })
-      return
+  function formatN8NData(n8nData: any) {
+    if (!n8nData) return "";
+    let texte = "";
+    if (Array.isArray(n8nData)) {
+      n8nData.forEach((item: any, idx: number) => {
+        texte += `\n\nSECTION ${idx + 1}\n`;
+        Object.entries(item).forEach(([key, value]) => {
+          texte += `• ${key} : ${value}\n`;
+        });
+      });
+    } else if (typeof n8nData === "object") {
+      texte += `\n\nSECTION\n`;
+      Object.entries(n8nData).forEach(([key, value]) => {
+        texte += `• ${key} : ${value}\n`;
+      });
+    } else {
+      texte = String(n8nData);
     }
-
-    setIsGenerating(true)
-    setGenerationProgress(0)
-    setDownloadLinks(null)
-
-    try {
-      // Simuler le processus de génération de rapport
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise((resolve) => setTimeout(resolve, 200))
-        setGenerationProgress(i)
-      }
-
-      // Simuler la génération de liens de téléchargement pour différents formats
-      const dummyWordContent = `Rapport Word généré à partir de ${file.name}`
-      const dummyPdfContent = `Rapport PDF généré à partir de ${file.name}`
-      const dummyExcelContent = `Rapport Excel généré à partir de ${file.name}`
-
-      setDownloadLinks({
-        word: URL.createObjectURL(new Blob([dummyWordContent], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })),
-        pdf: URL.createObjectURL(new Blob([dummyPdfContent], { type: "application/pdf" })),
-        excel: URL.createObjectURL(new Blob([dummyExcelContent], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })),
-      })
-
-      toast({
-        title: "Succès",
-        description: "Les rapports ont été générés et sont prêts au téléchargement.",
-      })
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la génération des rapports.",
-      })
-    } finally {
-      setIsGenerating(false)
-    }
+    return texte.trim();
   }
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (selectedMonths.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Mois manquant",
+        description: "Veuillez sélectionner au moins un mois.",
+      });
+      return;
+    }
+    setIsGenerating(true);
+    setGenerationProgress(0);
+    setDownloadLinks(null);
+    try {
+      setGenerationProgress(10);
+      // 1. Appel à n8n pour obtenir les données à insérer dans le rapport
+      const n8nRes = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${N8N_TOKEN}`,
+        },
+        body: JSON.stringify({
+          query: {
+            months: selectedMonths,
+            categories,
+            prompt: '', 
+          }
+        }),
+      });
+      setGenerationProgress(40);
+      let n8nData = null;
+      if (n8nRes.ok) {
+        n8nData = await n8nRes.json();
+      } else {
+        toast({ title: 'Erreur n8n', description: "Erreur lors de la récupération des données de n8n", variant: 'destructive' });
+        setIsGenerating(false);
+        return;
+      }
+      setGenerationProgress(60);
+      // 2. Génération du rapport avec les données de n8n
+      const rawText = formatN8NData(n8nData); // <-- ta fonction de formatage n8nData
+      const formattedText = formatPlainText(rawText); // <-- on applique le nettoyage ici !
+      const response = await fetch('/api/reports/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          months: selectedMonths,
+          format: reportFormat,
+          n8nData,
+          formattedText, // <-- on envoie le texte nettoyé
+        }),
+      });
+      setGenerationProgress(90);
+      if (!response.ok) throw new Error('Erreur lors de la génération du rapport');
+      const data = await response.json();
+      const link = document.createElement('a');
+      link.href = `data:${data.mimeType};base64,${data.content}`;
+      link.download = `${data.title}.${reportFormat === 'pdf' ? 'pdf' : 'docx'}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setGenerationProgress(100);
+      toast({ title: 'Succès', description: 'Le rapport a été généré avec succès' });
+    } catch (error) {
+      toast({ title: 'Erreur', description: 'Une erreur est survenue lors de la génération du rapport', variant: 'destructive' });
+    } finally {
+      setIsGenerating(false);
+      setTimeout(() => setGenerationProgress(0), 1000);
+    }
+  };
 
   const handleGenerateReport = async () => {
     setIsGenerating(true)
@@ -150,87 +310,45 @@ export default function RapportsPage() {
               <CardHeader className="text-center">
                 <CardTitle className="text-3xl font-bold">Génération de Rapport</CardTitle>
                 <CardDescription>
-                  Prototypes de rapports disponibles à affecter au modèle IA
+                  Sélectionnez les mois et le format du rapport à générer.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  <div className="grid gap-4">
+                <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                      <Label>Stockage des rapports mensuels (PDF)</Label>
-                      <div className="grid grid-cols-3 gap-4 mt-2">
-                        <Card>
-                          <CardContent className="p-4">
-                            <h4 className="font-medium mb-2">Janvier</h4>
-                            <Input type="file" accept=".pdf" />
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardContent className="p-4">
-                            <h4 className="font-medium mb-2">Février</h4>
-                            <Input type="file" accept=".pdf" />
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardContent className="p-4">
-                            <h4 className="font-medium mb-2">Mars</h4>
-                            <Input type="file" accept=".pdf" />
-                          </CardContent>
-                        </Card>
-                      </div>
+                    <Label>Mois à inclure dans le rapport</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                      {months.map((month) => (
+                        <label key={month} className="flex items-center gap-2">
+                          <Checkbox checked={selectedMonths.includes(month)} onChange={() => handleMonthToggle(month)} />
+                          <span>{month}</span>
+                        </label>
+                      ))}
                     </div>
                   </div>
-
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid gap-4">
-                      <div>
-                        <Label htmlFor="report-data-file">Fichier de Données pour le Rapport</Label>
-                        <Input id="report-data-file" type="file" onChange={handleFileChange} />
+                  <div>
+                    <Label>Format du rapport</Label>
+                    <div className="flex gap-4 mt-2">
+                      <label className="flex items-center gap-2">
+                        <input type="radio" name="format" value="word" checked={reportFormat === 'word'} onChange={() => setReportFormat('word')} /> Word
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input type="radio" name="format" value="pdf" checked={reportFormat === 'pdf'} onChange={() => setReportFormat('pdf')} /> PDF
+                      </label>
+                    </div>
+                  </div>
+                  {isGenerating && (
+                    <div className="w-full my-2">
+                      <Progress value={generationProgress} />
+                      <div className="text-center text-xs text-gray-500 mt-1">
+                        {generationProgress}%
                       </div>
                     </div>
-                    
-                    <Button type="submit" className="w-full" disabled={isGenerating || !file}>
-                      {isGenerating ? `Génération en cours (${generationProgress}%)` : "Générer le Rapport"}
-                    </Button>
-
-                    {isGenerating && (
-                      <Progress value={generationProgress} className="w-full mt-4" />
-                    )}
-
-                    {downloadLinks && (
-                      <div className="mt-6 text-center space-y-4">
-                        <p className="mb-2 text-lg font-semibold">Rapports générés :</p>
-                        {downloadLinks.word && (
-                          <a
-                            href={downloadLinks.word}
-                            download="rapport_dpcg.docx"
-                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2 mr-2"
-                          >
-                            Télécharger en Word
-                          </a>
-                        )}
-                        {downloadLinks.pdf && (
-                          <a
-                            href={downloadLinks.pdf}
-                            download="rapport_dpcg.pdf"
-                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2 mr-2"
-                          >
-                            Télécharger en PDF
-                          </a>
-                        )}
-                        {downloadLinks.excel && (
-                          <a
-                            href={downloadLinks.excel}
-                            download="rapport_dpcg.xlsx"
-                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2"
-                          >
-                            Télécharger en Excel
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </form>
-                </div>
+                  )}
+                  <Button type="submit" className="w-full" disabled={isGenerating || selectedMonths.length === 0}>
+                    {isGenerating ? 'Génération en cours...' : 'Générer le Rapport'}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           </TabsContent>

@@ -1,33 +1,38 @@
 import { NextResponse } from 'next/server';
 import { generateWordReport } from '@/lib/report-generator';
+import { generatePDFReport } from '@/lib/report-generator';
 import { Quarter } from '@/types/kpi';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { year, quarter } = body;
+    const { months, prompt, format, n8nData } = body;
 
-    if (!year || !quarter) {
+    if (!months || !Array.isArray(months) || months.length === 0) {
       return NextResponse.json(
-        { error: 'Année et trimestre requis' },
+        { error: 'Au moins un mois doit être sélectionné' },
         { status: 400 }
       );
     }
-
-    if (!['T1', 'T2', 'T3', 'T4'].includes(quarter)) {
+    if (!format || !['word', 'pdf'].includes(format)) {
       return NextResponse.json(
-        { error: 'Trimestre invalide' },
+        { error: 'Format invalide' },
         { status: 400 }
       );
     }
 
     try {
-      const report = await generateWordReport(year, quarter as Quarter);
+      let report;
+      if (format === 'word') {
+        report = await generateWordReport(months, prompt, n8nData);
+      } else {
+        report = await generatePDFReport(months, prompt, n8nData);
+      }
       return NextResponse.json(report);
     } catch (error) {
       console.error('Erreur lors de la génération du document Word:', error);
       return NextResponse.json(
-        { error: 'Erreur lors de la génération du document Word' },
+        { error: 'Erreur lors de la génération du document' },
         { status: 500 }
       );
     }
