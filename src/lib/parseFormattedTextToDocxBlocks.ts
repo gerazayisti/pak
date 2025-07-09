@@ -13,7 +13,6 @@ export function parseFormattedTextToDocxBlocks(formattedText: string) {
       paragraphBuffer = [];
     }
   }
-
   for (let line of lines) {
     line = line.trim();
     if (line.length === 0) {
@@ -85,7 +84,6 @@ export function parseFormattedTextToDocxBlocks(formattedText: string) {
       paragraphBuffer.push(line);
     }
   }
-
   // Si le texte se termine par un tableau
   if (inTable && tableRows.length > 0) {
     blocks.push(new Table({ rows: tableRows }));
