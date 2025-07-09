@@ -50,7 +50,7 @@ export default function CollectePage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('https://pak-auto.app.n8n.cloud/webhook-test/85456d3c-9b81-4a2c-a6f8-af894015d6df', {
+      const response = await fetch('https://pak-agent.app.n8n.cloud/webhook/9ba11544-5c4e-4f91-818a-08a4ecb596c5', {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer 1234567890abcde',

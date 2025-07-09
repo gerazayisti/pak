@@ -1,7 +1,5 @@
 "use client"
 
-"use client"
-
 import { useState, useRef, useEffect } from "react"
 import { Bot, FileText, BarChart, Ship, Send, User, PanelLeft, X, MessageSquare, ClipboardCopy } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -80,7 +78,7 @@ export default function RecherchePage() {
     setBotResponse(null);
 
     try {
-      const res = await fetch('https://pak-auto.app.n8n.cloud/webhook/9ba11544-5c4e-4f91-818a-08a4ecb596c5', {
+      const res = await fetch('https://pak-agent.app.n8n.cloud/webhook/9ba11544-5c4e-4f91-818a-08a4ecb596c5', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

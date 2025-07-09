@@ -1,13 +1,13 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardHeader } from "@/components/header";
 import { DashboardNav } from "@/components/nav";
 import Link from "next/link";
 import Image from "next/image"
 import { NotificationContainer, NotificationType } from "@/components/ui/notification"
 import { usePathname } from "next/navigation"
-import { User, Settings, LogOut, Menu, X } from "lucide-react"
+import { User, Settings, LogOut, Menu, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
@@ -27,8 +27,23 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [notifications, setNotifications] = useState<NotificationType[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const pathname = usePathname()
   const { data: session } = useSession()
+
+  // Collapse par défaut sur mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarCollapsed(true)
+      } else {
+        setIsSidebarCollapsed(false)
+      }
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const addNotification = (notification: Omit<NotificationType, "id" | "timestamp">) => {
     const newNotification: NotificationType = {
@@ -54,14 +69,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 transition-transform duration-300 ease-in-out",
+          "fixed inset-y-0 left-0 z-30 transition-all duration-300 ease-in-out",
+          isSidebarCollapsed ? "w-15" : "w-64",
           !isSidebarOpen && "-translate-x-full"
         )}
       >
-        <div className="h-full mx-4 my-4 rounded-xl bg-card border border-border shadow-lg">
-          <div className="flex h-16 items-center justify-between px-6 border-b border-border">
-            <Link href="/" className="flex items-center gap-2 font-bold text-2xl text-foreground">
-              <div className="relative h-8 w-8 rounded-full overflow-hidden">
+        <div className="h-full flex flex-col bg-card">
+          <div className={cn("flex h-14 items-center justify-between px-4", isSidebarCollapsed ? "justify-center" : "px-6 justify-between")}> 
+            <Link href="/" className={cn("flex items-center gap-2 font-bold text-2xl text-foreground transition-all duration-200", isSidebarCollapsed ? "justify-center w-full" : "")}>
+              <div className={cn("relative rounded-full overflow-hidden transition-all duration-200", isSidebarCollapsed ? "h-8 w-8" : "h-6 w-6")}> 
                 <Image
                   src="/paklogo.jpg"
                   alt="Logo PAK"
@@ -70,10 +86,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   priority
                 />
               </div>
-              <span>PAK</span>
-             
-            </Link> 
-            
+              {!isSidebarCollapsed && <span>PAK</span>}
+            </Link>
+            <button
+              onClick={() => setIsSidebarCollapsed((v) => !v)}
+              className="p-2 rounded-md hover:bg-accent transition-all"
+              aria-label={isSidebarCollapsed ? "Étendre le menu" : "Réduire le menu"}
+            >
+              {isSidebarCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+            </button>
             <button
               onClick={() => setIsSidebarOpen(false)}
               className="p-2 rounded-md hover:bg-accent lg:hidden"
@@ -81,15 +102,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="p-6">
-            <DashboardNav />
+          <div className={cn("flex-1 p-2 transition-all duration-200", isSidebarCollapsed ? "px-1" : "p-6")}> 
+            <DashboardNav collapsed={isSidebarCollapsed} />
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 lg:pl-72">
-        <header className="sticky top-4 z-20 bg-card border border-border rounded-lg">
+      <div className={cn("flex flex-col flex-1 transition-all duration-300", isSidebarCollapsed ? "lg:pl-20" : "lg:pl-54")}> 
+        <header className="sticky top-0 z-20 bg-card h-14">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-4">
               <button
