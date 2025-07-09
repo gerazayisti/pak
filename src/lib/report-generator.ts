@@ -25,7 +25,7 @@ export async function generateWordReport(months: string[], prompt?: string, n8nD
           prompt ? new Paragraph({ text: `Prompt : ${prompt}`, spacing: { after: 200 } }) : undefined,
           n8nData ? new Paragraph({ text: 'Données dynamiques de n8n :', heading: 'Heading2', spacing: { after: 100 } }) : undefined,
           ...(n8nData ? Object.entries(n8nData).map(([key, value]) => new Paragraph({ text: `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}` })) : []),
-        ].filter(Boolean),
+        ].filter(Boolean) as Paragraph[],
       }],
     });
     const buffer = await Packer.toBuffer(doc);
