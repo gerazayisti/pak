@@ -82,7 +82,7 @@ export default function RecherchePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer 1234567890abcde',
+          'Authorization': 'Bearer 1234567890qwerty',
         },
         body: JSON.stringify({ query: toSend }),
       });
