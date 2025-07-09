@@ -22,7 +22,7 @@ export function parseFormattedTextToDocxBlocks(formattedText: string) {
       }
     // Séparateur
     if (line.startsWith('---')) {
-      blocks.push(new Paragraph({ text: '', border: { bottom: { color: "auto", space: 1, value: "single", size: 6 } } }));
+      blocks.push(new Paragraph({ text: '', border: { bottom: { color: "auto", space: 1, style: "single", size: 6 } } }));
       continue;
     }
 
